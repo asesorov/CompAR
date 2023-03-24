@@ -5,16 +5,18 @@
     android:versionName="1.1">
 
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
 
     <uses-feature android:name="android.hardware.camera2.full" />
 
-    <application android:label="@string/app_name">
+    <application android:label="CompAR"> <!-- @string/app_name -->
         <activity
             android:name="com.asesorov.compar.ClassificationActivity"
             android:exported="false" />
         <activity
             android:name="com.asesorov.compar.MainActivity"
-            android:label="@string/app_name"
+            android:label="CompAR"
             android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

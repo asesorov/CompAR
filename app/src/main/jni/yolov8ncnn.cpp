@@ -231,7 +231,8 @@ JNIEXPORT jboolean JNICALL Java_com_asesorov_compar_Yolov8Ncnn_loadModel(JNIEnv*
 }
 
 // public native boolean openCamera(int facing);
-JNIEXPORT jboolean JNICALL Java_com_asesorov_compar_Yolov8Ncnn_openCamera(JNIEnv* env, jobject thiz, jint facing)
+JNIEXPORT jboolean JNICALL Java_com_asesorov_compar_Yolov8Ncnn_openCamera(JNIEnv* env, jobject thiz, jint facing,
+                                                                          jboolean save_objects)
 {
     if (facing < 0 || facing > 1)
         return JNI_FALSE;
@@ -263,6 +264,54 @@ JNIEXPORT jboolean JNICALL Java_com_asesorov_compar_Yolov8Ncnn_setOutputWindow(J
     g_camera->set_window(win);
 
     return JNI_TRUE;
+}
+
+// public native Bitmap[] getDetectedBitmaps();
+JNIEXPORT jobjectArray JNICALL Java_com_asesorov_compar_Yolov8Ncnn_getDetectedBitmaps(JNIEnv* env, jobject thiz)
+{
+    __android_log_print(ANDROID_LOG_DEBUG, "ncnn", "getDetectedObjects");
+
+    std::vector<cv::Mat> matArray = g_yolo->getDetected();
+
+    jclass bitmapCls = env->FindClass("android/graphics/Bitmap");
+    jmethodID createBitmapMethod = env->GetStaticMethodID(bitmapCls, "createBitmap", "(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;");
+    jclass bitmapConfigCls = env->FindClass("android/graphics/Bitmap$Config");
+    jfieldID bitmapConfigARGB8888FieldID = env->GetStaticFieldID(bitmapConfigCls, "ARGB_8888", "Landroid/graphics/Bitmap$Config;");
+    jobject config = env->GetStaticObjectField(bitmapConfigCls, bitmapConfigARGB8888FieldID);
+
+    int numMats = matArray.size();
+    jobjectArray bitmapArray = env->NewObjectArray(numMats, bitmapCls, NULL);
+
+    for (int i = 0; i < numMats; i++) {
+        cv::Mat &curMat = matArray[i];
+        jobject bitmap = env->CallStaticObjectMethod(bitmapCls, createBitmapMethod, curMat.cols, curMat.rows, config);
+
+        AndroidBitmapInfo info;
+        void *pixels;
+        int ret;
+
+        if ((ret = AndroidBitmap_getInfo(env, bitmap, &info)) < 0) {
+            __android_log_print(ANDROID_LOG_ERROR, "native-lib :: ", "AndroidBitmap_getInfo() failed ! error=%d", ret);
+            return NULL;
+        }
+
+        if (info.format != ANDROID_BITMAP_FORMAT_RGBA_8888) {
+            __android_log_print(ANDROID_LOG_ERROR, "native-lib :: ", "Bitmap format is not RGBA_8888!");
+            return NULL;
+        }
+
+        if ((ret = AndroidBitmap_lockPixels(env, bitmap, &pixels)) < 0) {
+            __android_log_print(ANDROID_LOG_ERROR, "native-lib :: ", "AndroidBitmap_lockPixels() failed ! error=%d", ret);
+        }
+
+        cv::Mat tmp(curMat.rows, curMat.cols, CV_8UC4, pixels);
+        cv::cvtColor(curMat, tmp, cv::COLOR_BGR2RGBA);
+
+        AndroidBitmap_unlockPixels(env, bitmap);
+        env->SetObjectArrayElement(bitmapArray, i, bitmap);
+    }
+
+    return bitmapArray;
 }
 
 }

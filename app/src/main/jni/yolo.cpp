@@ -14,7 +14,9 @@
 
 #include "yolo.h"
 
+#include <iostream>
 #include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
 #include "cpu.h"
@@ -354,7 +356,7 @@ int Yolo::detect(const cv::Mat& rgb, std::vector<Object>& objects, float prob_th
     return 0;
 }
 
-int Yolo::draw(cv::Mat& rgb, const std::vector<Object>& objects)
+int Yolo::draw(cv::Mat& rgb, const std::vector<Object>& objects, bool save_objects)
 {
     static const char* class_names[] = {
         "object"
@@ -384,9 +386,31 @@ int Yolo::draw(cv::Mat& rgb, const std::vector<Object>& objects)
 
     //int color_index = 0;
 
+    std::string save_path = "/sdcard/Android/data/com.android.camera2/files/";
+    if (save_objects) {
+        // Clear the directory before saving the images
+        std::system(("rm -rf " + save_path + "*").c_str());
+    }
+
+    objects_images.clear();
     for (size_t i = 0; i < objects.size(); i++)
     {
         const Object& obj = objects[i];
+
+        /*if (save_objects) {
+            // Crop the original image by the bounding box of the object
+            cv::Mat obj_image = rgb(obj.rect);
+
+            //std::stringstream ss;
+            //ss << save_path << "object_" << i << ".jpg";
+            //std::string filename = ss.str();
+
+            //cv::imwrite(filename, obj_image);
+
+            objects_images.push_back(obj_image);
+        }*/
+        cv::Mat obj_image = rgb(obj.rect);
+        objects_images.push_back(obj_image);
 
 //         fprintf(stderr, "%d = %.5f at %.2f %.2f %.2f x %.2f\n", obj.label, obj.prob,
 //                 obj.rect.x, obj.rect.y, obj.rect.width, obj.rect.height);
@@ -419,4 +443,8 @@ int Yolo::draw(cv::Mat& rgb, const std::vector<Object>& objects)
     }
 
     return 0;
+}
+
+std::vector<cv::Mat> Yolo::getDetected() {
+    return objects_images;
 }

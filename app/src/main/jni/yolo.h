@@ -42,13 +42,16 @@ public:
 
     int detect(const cv::Mat& rgb, std::vector<Object>& objects, float prob_threshold = 0.4f, float nms_threshold = 0.5f);
 
-    int draw(cv::Mat& rgb, const std::vector<Object>& objects);
+    int draw(cv::Mat& rgb, const std::vector<Object>& objects, bool save_objects = false);
+
+    std::vector<cv::Mat> getDetected();
 
 private:
     ncnn::Net yolo;
     int target_size;
     float mean_vals[3];
     float norm_vals[3];
+    std::vector<cv::Mat> objects_images;
     ncnn::UnlockedPoolAllocator blob_pool_allocator;
     ncnn::PoolAllocator workspace_pool_allocator;
 };

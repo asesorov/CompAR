@@ -16,7 +16,9 @@ package com.asesorov.compar;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.graphics.PixelFormat;
 import android.os.Bundle;
 import android.util.Log;
@@ -68,9 +70,18 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback
 
                 yolov8ncnn.closeCamera();
 
-                yolov8ncnn.openCamera(new_facing);
+                yolov8ncnn.openCamera(new_facing, false);
 
                 facing = new_facing;
+            }
+        });
+
+        Button buttonCompare = (Button) findViewById(R.id.buttonCompare);
+        buttonCompare.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View arg0) {
+                Bitmap[] bitmaps = yolov8ncnn.getDetectedBitmaps();
+                Log.i("MainActivity", "DETECTED ITEMS: " + bitmaps.length);
             }
         });
 
@@ -147,8 +158,12 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback
         {
             ActivityCompat.requestPermissions(this, new String[] {Manifest.permission.CAMERA}, REQUEST_CAMERA);
         }
+        if (ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_DENIED)
+        {
+            ActivityCompat.requestPermissions(this, new String[] {Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_CAMERA);
+        }
 
-        yolov8ncnn.openCamera(facing);
+        yolov8ncnn.openCamera(facing, false);
     }
 
     @Override

@@ -1,4 +1,4 @@
-# CompAR
+![CompAR](images/CompAR.png?raw=true "CompAR")
 
 This is my HSE diploma work: Supermarket products detection, recognition and recommendation app for Android.
 

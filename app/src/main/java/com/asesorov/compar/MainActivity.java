@@ -70,7 +70,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback
 
                 yolov8ncnn.closeCamera();
 
-                yolov8ncnn.openCamera(new_facing, false);
+                yolov8ncnn.openCamera(new_facing);
 
                 facing = new_facing;
             }
@@ -82,6 +82,17 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback
             public void onClick(View arg0) {
                 Bitmap[] bitmaps = yolov8ncnn.getDetectedBitmaps();
                 Log.i("MainActivity", "DETECTED ITEMS: " + bitmaps.length);
+
+                if (bitmaps.length > 0) {
+                    Intent intent = new Intent(MainActivity.this, ClassificationActivity.class);
+
+                    // Put the detected bitmaps in a Bundle
+                    Bundle bundle = new Bundle();
+                    bundle.putParcelableArray("bitmaps", bitmaps);
+                    intent.putExtras(bundle);
+
+                    startActivity(intent);
+                }
             }
         });
 
@@ -163,7 +174,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback
             ActivityCompat.requestPermissions(this, new String[] {Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_CAMERA);
         }
 
-        yolov8ncnn.openCamera(facing, false);
+        yolov8ncnn.openCamera(facing);
     }
 
     @Override

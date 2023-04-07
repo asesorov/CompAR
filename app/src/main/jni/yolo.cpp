@@ -356,7 +356,7 @@ int Yolo::detect(const cv::Mat& rgb, std::vector<Object>& objects, float prob_th
     return 0;
 }
 
-int Yolo::draw(cv::Mat& rgb, const std::vector<Object>& objects, bool save_objects)
+int Yolo::draw(cv::Mat& rgb, const std::vector<Object>& objects)
 {
     static const char* class_names[] = {
         "object"
@@ -386,29 +386,10 @@ int Yolo::draw(cv::Mat& rgb, const std::vector<Object>& objects, bool save_objec
 
     //int color_index = 0;
 
-    std::string save_path = "/sdcard/Android/data/com.android.camera2/files/";
-    if (save_objects) {
-        // Clear the directory before saving the images
-        std::system(("rm -rf " + save_path + "*").c_str());
-    }
-
     objects_images.clear();
     for (size_t i = 0; i < objects.size(); i++)
     {
         const Object& obj = objects[i];
-
-        /*if (save_objects) {
-            // Crop the original image by the bounding box of the object
-            cv::Mat obj_image = rgb(obj.rect);
-
-            //std::stringstream ss;
-            //ss << save_path << "object_" << i << ".jpg";
-            //std::string filename = ss.str();
-
-            //cv::imwrite(filename, obj_image);
-
-            objects_images.push_back(obj_image);
-        }*/
         cv::Mat obj_image = rgb(obj.rect);
         objects_images.push_back(obj_image);
 

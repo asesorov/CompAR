@@ -231,8 +231,7 @@ JNIEXPORT jboolean JNICALL Java_com_asesorov_compar_Yolov8Ncnn_loadModel(JNIEnv*
 }
 
 // public native boolean openCamera(int facing);
-JNIEXPORT jboolean JNICALL Java_com_asesorov_compar_Yolov8Ncnn_openCamera(JNIEnv* env, jobject thiz, jint facing,
-                                                                          jboolean save_objects)
+JNIEXPORT jboolean JNICALL Java_com_asesorov_compar_Yolov8Ncnn_openCamera(JNIEnv* env, jobject thiz, jint facing)
 {
     if (facing < 0 || facing > 1)
         return JNI_FALSE;
@@ -305,7 +304,7 @@ JNIEXPORT jobjectArray JNICALL Java_com_asesorov_compar_Yolov8Ncnn_getDetectedBi
         }
 
         cv::Mat tmp(curMat.rows, curMat.cols, CV_8UC4, pixels);
-        cv::cvtColor(curMat, tmp, cv::COLOR_BGR2RGBA);
+        cv::cvtColor(curMat, tmp, cv::COLOR_RGB2RGBA);
 
         AndroidBitmap_unlockPixels(env, bitmap);
         env->SetObjectArrayElement(bitmapArray, i, bitmap);

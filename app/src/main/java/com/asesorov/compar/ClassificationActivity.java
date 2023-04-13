@@ -64,7 +64,7 @@ public class ClassificationActivity extends Activity {
         // Loading Classification hash model
         // Load the model
         try {
-            module = LiteModuleLoader.load(assetFilePath(getApplicationContext(), "hashmodel.ptl"));
+            module = LiteModuleLoader.load(assetFilePath(getApplicationContext(), "hashmodelmobilenetv3large.ptl"));
         } catch (IOException e) {
             finish();
         }
@@ -108,8 +108,8 @@ public class ClassificationActivity extends Activity {
 
     private float[] computeHash(Bitmap bitmap) {
         Bitmap scaledBitmap = Bitmap.createScaledBitmap(bitmap, 224, 224, true);
-        float[] mean = {0, 0, 0};
-        float[] std = {1, 1, 1};
+        float[] mean = {.485f, .456f, .406f};
+        float[] std = {.229f, .224f, .225f};
         Tensor inputTensor = TensorImageUtils.bitmapToFloat32Tensor(scaledBitmap, mean, std);
 
         IValue output = module.forward(IValue.from(inputTensor));

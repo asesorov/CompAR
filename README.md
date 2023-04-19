@@ -8,8 +8,8 @@ Dependencies:
 
 Models:
 - YOLOv8, trained on SKU110K dataset (75% acc)
-- MobileNet-v3 (with lion optimizer), trained on products10k dataset (93% acc)
-- HashModel, based on pre-trained ResNet50 features (hash size: 1024) and my own Lenta dataset (~100% acc)
+- MobileNet-v3 (with lion optimizer), trained on RP2K dataset (93% acc)
+- ProductHash, my own model based on pre-trained MobileNet-v3 features (hash size: 1024) and my own Lenta dataset (~100% acc)
 
 ## References:
 - https://github.com/FeiGeChuanShu/ncnn-android-yolov8

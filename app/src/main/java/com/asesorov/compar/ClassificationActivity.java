@@ -2,9 +2,9 @@ package com.asesorov.compar;
 
 import android.app.Activity;
 import android.content.Context;
+import android.graphics.Color;
 import android.text.TextUtils;
 import android.view.View;
-import android.widget.ScrollView;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.os.Parcelable;
@@ -29,6 +29,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -42,14 +43,15 @@ import android.view.ViewGroup;
 import android.view.LayoutInflater;
 
 import androidx.annotation.NonNull;
+import androidx.core.util.Pair;
 import androidx.viewpager.widget.PagerAdapter;
 import androidx.viewpager.widget.ViewPager;
 
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Random;
 
 public class ClassificationActivity extends Activity {
-    private TableLayout tableLayout;
     private Module module;
     private JSONObject productData;
 
@@ -82,7 +84,6 @@ public class ClassificationActivity extends Activity {
         productData = loadProductData("ssjd.json");
 
         // Loading Classification hash model
-        // Load the model
         try {
             module = LiteModuleLoader.load(assetFilePath(getApplicationContext(), "hashmodelmobilenetv3large256sign.ptl"));
         } catch (IOException e) {
@@ -91,9 +92,29 @@ public class ClassificationActivity extends Activity {
 
         Map<String, float[][]> hashes = loadClassHashes("hashes_lenta_256.json");
 
+        // Compute hashes for input bitmaps
+        float[][] inputHashes = new float[bitmaps.length][];
+        for (int i = 0; i < bitmaps.length; i++) {
+            inputHashes[i] = computeHash(bitmaps[i]);
+        }
+
+        // Perform k-means clustering on input hashes
+        Pair<float[][], int[]> kMeansResult = kMeans(inputHashes, 300); // 300 is the maximum number of iterations
+        float[][] centroids = kMeansResult.first;
+        int[] assignments = kMeansResult.second;
+
+        // Create a map to store the representative bitmap for each cluster
+        Map<Integer, Bitmap> representativeBitmaps = new HashMap<>();
+        for (int i = 0; i < assignments.length; i++) {
+            int cluster = assignments[i];
+            if (!representativeBitmaps.containsKey(cluster)) {
+                representativeBitmaps.put(cluster, bitmaps[i]);
+            }
+        }
+
         ArrayList<JSONObject> products = new ArrayList<>();
-        for (Bitmap bitmap : bitmaps) {
-            String productId = findSimilarClass(computeHash(bitmap), hashes);
+        for (float[] centroid : centroids) {
+            String productId = findSimilarClass(centroid, hashes);
 
             try {
                 JSONObject productInfo = productData.getJSONObject(productId);
@@ -107,8 +128,16 @@ public class ClassificationActivity extends Activity {
         // Release the resources after the classification is done
         releaseResources();
 
+        // Create an array of representative bitmaps in the same order as the products
+        Bitmap[] representativeBitmapArray = new Bitmap[products.size()];
+        int bitmapIndex = 0;
+        for (int cluster : representativeBitmaps.keySet()) {
+            representativeBitmapArray[bitmapIndex] = representativeBitmaps.get(cluster);
+            bitmapIndex++;
+        }
+
         ViewPager viewPager = findViewById(R.id.view_pager);
-        viewPager.setAdapter(new CustomPagerAdapter(this, products, bitmaps));
+        viewPager.setAdapter(new CustomPagerAdapter(this, products, representativeBitmapArray));
     }
 
     private JSONObject loadProductData(String assetName) {
@@ -181,7 +210,6 @@ public class ClassificationActivity extends Activity {
         return classHashes;
     }
 
-
     private String findSimilarClass(float[] hashVec, Map<String, float[][]> classHashes) {
         String bestLabel = null;
         double bestDistance = Double.POSITIVE_INFINITY;
@@ -209,6 +237,149 @@ public class ClassificationActivity extends Activity {
             sum += diff * diff;
         }
         return Math.sqrt(sum);
+    }
+
+    private Pair<float[][], int[]> kMeans(float[][] data, int maxIterations) {
+        int optimalK = findOptimalK(data);
+        return kMeans(data, optimalK, maxIterations);
+    }
+
+    private int findOptimalK(float[][] data) {
+        int minK = 2;
+        int maxK = Math.min(10, data.length); // Adjust the upper bound as needed
+        double[] inertia = new double[maxK - minK + 1];
+
+        for (int k = minK; k <= maxK; k++) {
+            Pair<float[][], int[]> kMeansResult = kMeans(data, k, 300);
+            float[][] centroids = kMeansResult.first;
+            inertia[k - minK] = calculateInertia(data, centroids);
+        }
+
+        int optimalK = elbowMethod(inertia);
+        return optimalK + minK;
+    }
+
+    private int elbowMethod(double[] inertia) {
+        double maxDifference = Double.NEGATIVE_INFINITY;
+        int elbow = 0;
+        for (int i = 1; i < inertia.length - 1; i++) {
+            double difference = Math.abs((inertia[i] - inertia[i - 1]) / (inertia[i + 1] - inertia[i]));
+            if (difference > maxDifference) {
+                maxDifference = difference;
+                elbow = i;
+            }
+        }
+        return elbow;
+    }
+
+    private double calculateInertia(float[][] data, float[][] centroids) {
+        double inertia = 0;
+        for (float[] point : data) {
+            double minDistance = Double.POSITIVE_INFINITY;
+            for (float[] centroid : centroids) {
+                double distance = euclideanDistance(point, centroid);
+                if (distance < minDistance) {
+                    minDistance = distance;
+                }
+            }
+            inertia += minDistance * minDistance;
+        }
+        return inertia;
+    }
+
+    private float[][] initializeCentroids(float[][] data, int k) {
+        float[][] centroids = new float[k][];
+        Random random = new Random();
+        int firstCentroid = random.nextInt(data.length);
+        centroids[0] = data[firstCentroid];
+
+        for (int i = 1; i < k; i++) {
+            double[] distances = new double[data.length];
+            for (int j = 0; j < data.length; j++) {
+                double minDistance = Double.POSITIVE_INFINITY;
+                for (int l = 0; l < i; l++) {
+                    double distance = euclideanDistance(data[j], centroids[l]);
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                    }
+                }
+                distances[j] = minDistance;
+            }
+
+            double totalDistance = Arrays.stream(distances).sum();
+            double randomValue = random.nextDouble() * totalDistance;
+            double cumulativeDistance = 0;
+            int nextCentroid = -1;
+            for (int j = 0; j < data.length; j++) {
+                cumulativeDistance += distances[j];
+                if (cumulativeDistance >= randomValue) {
+                    nextCentroid = j;
+                    break;
+                }
+            }
+
+            centroids[i] = data[nextCentroid];
+        }
+
+        return centroids;
+    }
+
+    private Pair<float[][], int[]> kMeans(float[][] data, int k, int maxIterations) {
+        float[][] centroids = initializeCentroids(data, k);
+        int[] assignments = new int[data.length];
+
+        for (int iteration = 0; iteration < maxIterations; iteration++) {
+            // Assign data points to the nearest centroid
+            boolean changed = false;
+            for (int i = 0; i < data.length; i++) {
+                float[] point = data[i];
+                int nearestCentroid = -1;
+                double minDistance = Double.POSITIVE_INFINITY;
+                for (int j = 0; j < centroids.length; j++) {
+                    float[] centroid = centroids[j];
+                    double distance = euclideanDistance(point, centroid);
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        nearestCentroid = j;
+                    }
+                }
+                if (assignments[i] != nearestCentroid) {
+                    assignments[i] = nearestCentroid;
+                    changed = true;
+                }
+            }
+
+            // Update centroids
+            float[][] newCentroids = new float[k][data[0].length];
+            int[] counts = new int[k];
+
+            for (int i = 0; i < data.length; i++) {
+                int centroidIndex = assignments[i];
+                float[] point = data[i];
+                for (int j = 0; j < data[0].length; j++) {
+                    newCentroids[centroidIndex][j] += point[j];
+                }
+                counts[centroidIndex]++;
+            }
+
+            for (int i = 0; i < k; i++) {
+                if (counts[i] != 0) {
+                    for (int j = 0; j < data[0].length; j++) {
+                        newCentroids[i][j] /= counts[i];
+                    }
+                } else {
+                    newCentroids[i] = centroids[i];
+                }
+            }
+
+            centroids = newCentroids;
+
+            if (!changed) {
+                break;
+            }
+        }
+
+        return new Pair<>(centroids, assignments);
     }
 
     private class CustomPagerAdapter extends PagerAdapter {
@@ -292,33 +463,40 @@ public class ClassificationActivity extends Activity {
             View view = inflater.inflate(R.layout.product_list, container, false);
 
             TableLayout tableLayout = view.findViewById(R.id.table_layout);
+            TextView tableTitle = view.findViewById(R.id.table_title);
+            tableTitle.setText(position == 0 ? "Price" : position == 1 ? "Rating" : "Calories");
 
             ArrayList<JSONObject> currentList = position == 0 ? sortedByPrice : position == 1 ? sortedByRating : sortedByCalories;
 
             Display display = getWindowManager().getDefaultDisplay();
             int screenWidth = display.getWidth();
             int scaledWidth = screenWidth / 3;
+            int rowIndex = 0;
             for (JSONObject product : currentList) {
                 try {
                     TableRow tableRow = new TableRow(context);
+
+                    // Apply custom row background colors
+                    int bgColor = rowIndex % 2 == 0 ? Color.parseColor("#F0F0F0") : Color.parseColor("#FFFFFF");
+                    tableRow.setBackgroundColor(bgColor);
 
                     // Get the index of the product in the original product list
                     int index = products.indexOf(product);
 
                     ImageView imageView = new ImageView(context);
                     imageView.setImageBitmap(Bitmap.createScaledBitmap(bitmaps[index], scaledWidth, bitmaps[index].getHeight() * scaledWidth / bitmaps[index].getWidth(), true));
-                    imageView.setBackgroundResource(R.drawable.table_border);
+                    imageView.setLayoutParams(new TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1));
                     tableRow.addView(imageView);
 
-                    TextView titleView = new TextView(context);
-                    titleView.setText(product.getString("title"));
-                    titleView.setBackgroundResource(R.drawable.table_border);
-                    titleView.setPadding(8, 8, 8, 8);
-                    titleView.setMaxWidth(200);
-                    titleView.setHorizontallyScrolling(false);
-                    titleView.setLines(10);
-                    titleView.setEllipsize(TextUtils.TruncateAt.END);
-                    tableRow.addView(titleView);
+                    TextView nameView = new TextView(context);
+                    nameView.setText(product.getString("title"));
+                    nameView.setPadding(8, 8, 8, 8);
+                    nameView.setMaxWidth(200);
+                    nameView.setHorizontallyScrolling(false);
+                    nameView.setLines(10);
+                    nameView.setEllipsize(TextUtils.TruncateAt.END);
+                    nameView.setLayoutParams(new TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1));
+                    tableRow.addView(nameView);
 
                     TextView valueView = new TextView(context);
                     if (position == 0) {
@@ -329,15 +507,17 @@ public class ClassificationActivity extends Activity {
                         valueView.setText(product.getString("calories100g"));
                     }
 
-                    valueView.setBackgroundResource(R.drawable.table_border);
                     valueView.setPadding(8, 8, 8, 8);
                     valueView.setMaxWidth(100);
                     valueView.setHorizontallyScrolling(false);
                     valueView.setLines(5);
                     valueView.setEllipsize(TextUtils.TruncateAt.END);
+                    valueView.setLayoutParams(new TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1));
                     tableRow.addView(valueView);
 
                     tableLayout.addView(tableRow);
+
+                    rowIndex++;
                 } catch (JSONException e) {
                     e.printStackTrace();
                 }

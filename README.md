@@ -11,6 +11,10 @@ Models:
 - MobileNet-v3 (with lion optimizer), trained on RP2K dataset (93% acc)
 - ProductHash, my own model based on pre-trained MobileNet-v3 features (hash size: 256) and my own Lenta dataset (~100% acc)
 
+## Screenshots:
+![Main menu](images/MainMenu.jpg?raw=true "Main menu")
+![Rating](images/RatingComparison.jpg?raw=true "Rating")
+
 ## References:
 - https://github.com/FeiGeChuanShu/ncnn-android-yolov8
 - https://github.com/nihui/ncnn-android-nanodet  
